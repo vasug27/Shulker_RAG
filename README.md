@@ -37,7 +37,7 @@ Shulker_RAG/
 ├── requirements.txt    # Python dependencies
 ├── .env                # API key (not committed)
 ├── .gitignore          # Ignores venv, .env, __pycache__
-└── README.md
+├── README.md           # Project documentation
 ```
 
 ---
@@ -83,6 +83,8 @@ python api.py
 gunicorn -w 4 -b 0.0.0.0:5050 api:app
 ```
 Server runs at `http://localhost:5050`
+
+🌐 **Live:** https://shulker-rag.onrender.com/
 
 ---
 
