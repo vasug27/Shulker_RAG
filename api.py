@@ -1,10 +1,11 @@
 import os
 import json
 import re
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import google.generativeai as genai
+import uvicorn
 
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -13,8 +14,16 @@ if not API_KEY:
 
 genai.configure(api_key=API_KEY)
 
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+app = FastAPI(title="Shulker RAG - AI Quiz Generator API")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def generate_quiz(summary: str):
@@ -49,28 +58,44 @@ def generate_quiz(summary: str):
         return json.loads(cleaned)
 
 
-@app.route("/", methods=["GET"])
+@app.get("/")
 def home():
-    return jsonify({
+    return {
         "message": "Quiz Generator API is running.",
         "endpoint": "/generate-quiz",
         "input_format": "Raw text (summary)"
-    })
+    }
 
 
-@app.route("/generate-quiz", methods=["POST"])
-def quiz_route():
-    summary = request.data.decode("utf-8").strip()
+@app.post(
+    "/generate-quiz",
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "text/plain": {
+                    "schema": {
+                        "type": "string",
+                        "description": "Raw meeting summary text"
+                    }
+                }
+            },
+            "required": True
+        }
+    }
+)
+async def quiz_route(request: Request):
+    body = await request.body()
+    summary = body.decode("utf-8").strip()
     if not summary:
-        return jsonify({"error": "Empty summary"}), 400
+        raise HTTPException(status_code=400, detail="Empty summary")
 
     try:
         quiz_data = generate_quiz(summary)
-        return jsonify(quiz_data)
+        return quiz_data
     except Exception as e:
         print(f"[ERROR] Quiz generation failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5050, debug=False)
+    uvicorn.run(app, host="0.0.0.0", port=5050)
